@@ -13,13 +13,15 @@ class Game {
   constructor() {
     this.onTick = this.onTick.bind(this);
   }
-  onFinish() {}
+
+  onFinish() {
+  }
 
   onTick() {
     const resultForce = new lib.Point(0, 0);
     this.attractors.forEach(attractor => {
       const distance = getDistance(this.player, attractor);
-      const force = 100 * attractor.mass / Math.pow(distance, 2);
+      const force = 1 * attractor.mass / Math.pow(distance, 2);
       const forceX = force * (attractor.x - this.player.x) / distance
       const forceY = force * (attractor.y - this.player.y) / distance
       attractor.setForce(forceX, forceY)
@@ -31,12 +33,13 @@ class Game {
     this.player.move();
 
     const distanceToEndpoint = getDistance(this.player, this.endpoint);
-    this.player.score = Math.min(distanceToEndpoint, this.player.score);
-    if (distanceToEndpoint < 30) {
-      this.destroy();
-      this.onFinish(this.player.score, true);
-    }
-    if (distanceToEndpoint > 2000) {
+    // this.player.score = Math.min(distanceToEndpoint, this.player.score);
+    // if (distanceToEndpoint < 30) {
+    //   this.destroy();
+    //   this.onFinish(this.player.score, true);
+    // }
+    if (distanceToEndpoint > 500) {
+      this.player.score = Date.now() - this.player.bdate;
       this.destroy();
       this.onFinish(this.player.score, false);
     }
@@ -44,8 +47,8 @@ class Game {
 
   runExperiment(attractors) {
     stage.removeAllChildren();
-    this.endpoint = new EndPoint(w - 100, h / 2);
-    this.startpoint = new StartPoint(100, h / 2);
+    this.endpoint = new EndPoint(w / 2, h / 2);
+    this.startpoint = new StartPoint(w / 2 - 100, h / 2);
     this.player = new Particle(this.startpoint.x, this.startpoint.y);
     this.attractors = attractors.map(genomToAttractor);
     stage.addChild(this.player);
@@ -71,11 +74,11 @@ const IMovable = {
     this.points = [new lib.Point(x, y), ...this.points.slice(0, this.points.length - 1)];
     let g = this.graphics.clear()
       .beginFill('#a0c')
-      .drawCircle(0, 0, 10)
+      .drawCircle(0, 0, 8)
       .endFill()
     g
       .beginStroke("#00ff00")
-      .setStrokeStyle(2)
+      .setStrokeStyle(1)
       .moveTo(0, 0)
     this.points.forEach(point => {
       g = g
@@ -95,7 +98,7 @@ class StartPoint extends lib.Shape {
     this.y = y;
     this.graphics
       .beginFill('green')
-      .drawCircle(0, 0, 30)
+      .drawCircle(0, 0, 15)
   }
 }
 class EndPoint extends lib.Shape {
@@ -105,7 +108,7 @@ class EndPoint extends lib.Shape {
     this.y = y;
     this.graphics
       .beginFill('blue')
-      .drawCircle(0, 0, 30)
+      .drawCircle(0, 0, 15)
   }
 }
 
@@ -118,13 +121,14 @@ class Particle extends lib.Shape {
     for (let i = 0; i < this.PATH_LENGTH; i++) {
       this.points.push(new lib.Point(x, y));
     }
+    this.bdate = Date.now();
     this.score = Infinity;
     this.x = x;
     this.y = y;
     this.speed = initialSpeed;
     this.graphics
       .beginFill('#a0c')
-      .drawCircle(0, 0, 10)
+      .drawCircle(0, 0, 8)
   }
 }
 
@@ -138,7 +142,7 @@ class Attractor extends lib.Shape {
     this.forceY = 50;
     this.graphics
       .beginFill('rgba(200, 0, 0, 0.5)')
-      .drawCircle(0, 0, this.mass / 10)
+      .drawCircle(0, 0, this.mass / 20)
       .endFill()
   }
 
@@ -151,9 +155,9 @@ class Attractor extends lib.Shape {
       .drawCircle(0, 0, this.mass / 10)
       .endFill()
       .beginStroke("#f00")
-      .setStrokeStyle(2)
+      .setStrokeStyle(1)
       .moveTo(0, 0)
-      .lineTo(this.forceX * 50, this.forceY * 50)
+      .lineTo(this.forceX * 25, this.forceY * 25)
       .endStroke()
   }
 }
@@ -168,7 +172,7 @@ function generateAttractors(attractorCount) {
     const attractor = {
       x: Math.random() * w,
       y: Math.random() * h,
-      mass: Math.random() * 200,
+      mass: Math.random() * 100,
     };
     attractors.push(attractor)
   }
@@ -208,17 +212,23 @@ function mergeExperiments(ex1, ex2) {
     };
     r.push(r1);
   }
+
+  for (let i = 0; i < 4; i++) {
+    r[i].attractors[i].x += Math.random() * 100 - 50
+    r[i].attractors[i].y += Math.random() * 100 - 50
+    r[i].attractors[i].mass += Math.random() * 30 - 15
+  }
   return r;
 }
 
 function genomToAttractor(genom) {
-  const {x,y,mass} = genom;
+  const {x, y, mass} = genom;
   return new Attractor(x, y, mass);
 }
 
 
 function experimentComparator(ex1, ex2) {
-  return ex1.score - ex2.score;
+  return ex2.score - ex1.score;
 }
 class GameRunner {
   constructor() {
@@ -228,7 +238,7 @@ class GameRunner {
   runSession(bestPair = null) {
     let i = 0;
     this.experiments = bestPair === null
-      ? generateSession(10, 5)
+      ? generateSession(10, 1000)
       : mergeExperiments(bestPair[0], bestPair[1]);
     this.game.runExperiment(this.experiments[i].attractors);
     this.game.onFinish = (score) => {
@@ -243,6 +253,7 @@ class GameRunner {
       }
     }
   }
+
   finishSession() {
     const bestPair = this.experiments.sort(experimentComparator).slice(0, 2);
     console.log(bestPair);
@@ -254,5 +265,5 @@ class GameRunner {
 const gameRunner = new GameRunner();
 gameRunner.runSession();
 
-lib.Ticker.framerate = 6000;
+lib.Ticker.framerate = 15000;
 lib.Ticker.addEventListener('tick', stage);
